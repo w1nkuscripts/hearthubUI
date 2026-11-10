@@ -1,4 +1,4 @@
---// Serv
+-- Services
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -7,12 +7,12 @@ local Stats = game:GetService("Stats")
 
 local LocalPlayer = Players.LocalPlayer
 
--- Lib
+-- Library
 local Library = {
 	Name = "heart",
 	Suffix = ".hub",
-	Mode = RunService:IsStudio() and "studio" or "live", 
-	Font = Enum.Font.Arcade, 
+	Mode = RunService:IsStudio() and "studio" or "live", -- в watermark: ник [live]
+	Font = Enum.Font.Arcade, -- пиксельный шрифт (можно поменять, например на Enum.Font.Code)
 	TextSize = 14,
 	ToggleKey = Enum.KeyCode.RightShift,
 
@@ -45,7 +45,7 @@ Library.__index = Library
 local T = Library.Theme
 local SHIMMER
 
---// Helpers
+-- Helpers
 local function connect(signal, fn)
 	local c = signal:Connect(fn)
 	table.insert(Library.Connections, c)
@@ -153,7 +153,7 @@ local function keyName(k)
 	return n:upper()
 end
 
--- 
+-- poss in offset
 local function resolvePos(obj)
 	local p = obj.Parent.AbsoluteSize
 	return Vector2.new(
@@ -201,77 +201,44 @@ local function makeLine(scroller, holder, padX)
 	return L
 end
 
--- icons
-local function makeGear(parent, color)
-	local holder = frame({
-		Size = UDim2.fromOffset(13, 13),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-	}, parent)
-	local parts = {}
-	for _, rot in ipairs({ 0, 45, 90, 135 }) do
-		table.insert(parts, frame({
-			BackgroundColor3 = color,
-			Size = UDim2.fromOffset(13, 3),
--- Шестерёнка: пиксель-арт 11x11 (чёткая, без поворотов, с настоящей дыркой)
-local GEAR_ART = {
-	"....XXX....",
-	".XX.XXX.XX.",
-	".XXXXXXXXX.",
-	"..XXXXXXX..",
-	"XXXX...XXXX",
-	"XXXX...XXXX",
-	"XXXX...XXXX",
-	"..XXXXXXX..",
-	".XXXXXXXXX.",
-	".XX.XXX.XX.",
-	"....XXX....",
-}
+--icons
+local GEAR_IMAGE = "rbxassetid://106205298246017"
 
 local function makeGear(parent, color)
-	local holder = frame({
-		Size = UDim2.fromOffset(11, 11),
-		Position = UDim2.fromOffset(
-			math.floor((parent.Size.X.Offset - 11) / 2),
-			math.floor((parent.Size.Y.Offset - 11) / 2)
-		),
-	}, parent)
+	local icon = Instance.new("ImageLabel")
+	icon.BackgroundTransparency = 1
+	icon.BorderSizePixel = 0
+	icon.Image = GEAR_IMAGE
+	icon.ImageColor3 = color
+	icon.ScaleType = Enum.ScaleType.Fit
+	icon.Size = UDim2.fromOffset(12, 12)
+	icon.AnchorPoint = Vector2.new(0.5, 0.5)
+	icon.Position = UDim2.fromOffset(
+		math.floor(parent.Size.X.Offset / 2),
+		math.floor(parent.Size.Y.Offset / 2)
+	)
+	icon.Parent = parent
 
-	local parts = {}
-	for y, row in ipairs(GEAR_ART) do
-		local x = 1
-		while x <= #row do
-			if row:sub(x, x) == "X" then
-				local x2 = x
-				while x2 < #row and row:sub(x2 + 1, x2 + 1) == "X" do
-					x2 += 1
-				end
-				table.insert(parts, frame({
-					BackgroundColor3 = color,
-					Size = UDim2.fromOffset(x2 - x + 1, 1),
-					Position = UDim2.fromOffset(x - 1, y - 1),
-				}, holder))
-				x = x2 + 1
-			else
-				x += 1
-			end
-		end
-	end
-
-	-- первым значением возвращается пустышка: старый код на hover крутит её,
-	-- а сама шестерёнка остаётся чёткой (поворот размыл бы пиксели)
-	local spin = Instance.new("Frame")
-
-	return spin, function(c, animated)
-		for _, p in ipairs(parts) do
-			if animated then
-				tween(p, 0.15, { BackgroundColor3 = c })
-			else
-				p.BackgroundColor3 = c
-			end
+	-- back icon
+	return icon, function(c, animated)
+		if animated then
+			tween(icon, 0.15, { ImageColor3 = c })
+		else
+			icon.ImageColor3 = c
 		end
 	end
 end
+local function makeMagnifier(parent)
+	local holder = frame({
+		Size = UDim2.fromOffset(12, 12),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+	}, parent)
+	local circle = frame({ Size = UDim2.fromOffset(8, 8) }, holder)
+	create("UICorner", { CornerRadius = UDim.new(1, 0) }, circle)
+	local st = stroke(circle, T.TextDim)
+	local handle = frame({
+		BackgroundColor3 = T.TextDim,
 		Size = UDim2.fromOffset(5, 2),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromOffset(9.5, 9.5),
@@ -305,7 +272,7 @@ local function fadeOut(g)
 	end)
 end
 
--- Popups
+-- Popups dropdown bind
 function Library:OpenPopup(popupFrame, anchor, place, onClose)
 	self:ClosePopup()
 	self.Popup = { Frame = popupFrame, Anchor = anchor, Place = place, OnClose = onClose }
@@ -329,7 +296,7 @@ function Library:ClosePopup()
 	end
 end
 
--- Keybind list
+--// Keybind list
 function Library:RefreshKeybindList()
 	if not self.KbInner then
 		return
@@ -396,7 +363,7 @@ function Library:SetKeybindListVisible(v)
 	end
 end
 
--- Drag 
+-- Drag
 local function makeDraggable(handle, target)
 	connect(handle.InputBegan, function(input)
 		if isPress(input) then
@@ -416,7 +383,7 @@ local function makeDraggable(handle, target)
 	end)
 end
 
--- HUD 
+-- HUD watermark + keybind list
 function Library:_BuildHud(gui)
 	local accentHex = "#" .. T.Accent:ToHex()
 
@@ -475,7 +442,7 @@ function Library:_BuildHud(gui)
 	self.KeybindFrame = kb
 	self.KbInner = inner
 
-	-- watermark 
+	-- update 
 	local fps, frames, acc, last = 60, 0, 0, 0
 	local function getPing()
 		local ok, v = pcall(function()
@@ -495,7 +462,7 @@ function Library:_BuildHud(gui)
 	connect(RunService.RenderStepped, function(dt)
 		local now = os.clock()
 
-		-- 
+		-- blick 
 		local x = ((now * 0.7) % 2) - 1
 		for i = #shimmers, 1, -1 do
 			local g = shimmers[i]
@@ -506,7 +473,7 @@ function Library:_BuildHud(gui)
 			end
 		end
 
-		-- 
+		-- slide
 		local a = 1 - math.exp(-dt * 16)
 		for i = #Lines, 1, -1 do
 			local L = Lines[i]
@@ -533,12 +500,12 @@ function Library:_BuildHud(gui)
 		if self.Dragging then
 			self.Dragging.Update()
 		end
-		-- попап следует за якорем
+		-- 
 		if self.Popup then
 			self.Popup.Place()
 		end
 
-		-- fps
+		-- 
 		frames += 1
 		acc += dt
 		if acc >= 0.5 then
@@ -552,7 +519,7 @@ function Library:_BuildHud(gui)
 	end)
 end
 
--- Registry 
+-- Registry
 function Library:Register(name, sub, rowFrame)
 	table.insert(self.Registry, { Name = name, Sub = sub, Tab = sub.Tab, Frame = rowFrame })
 end
@@ -577,7 +544,7 @@ local function flash(f)
 	end)
 end
 
---
+-- selection
 local Section = {}
 Section.__index = Section
 
@@ -720,7 +687,7 @@ function Section:AddToggle(name, opts)
 			setGearColor(gearBase(), true)
 		end)
 
-		-- 
+		-- bind window
 		local pop = frame({
 			BackgroundColor3 = T.Background,
 			Size = UDim2.fromOffset(130, 0),
@@ -1073,6 +1040,7 @@ Section.CreateButton = Section.AddButton
 Section.CreateToggle = Section.AddToggle
 Section.CreateSlider = Section.AddSlider
 Section.CreateDropdown = Section.AddDropdown
+
 --
 local SubTab = {}
 SubTab.__index = SubTab
