@@ -213,28 +213,56 @@ local function makeGear(parent, color)
 		table.insert(parts, frame({
 			BackgroundColor3 = color,
 			Size = UDim2.fromOffset(13, 3),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Rotation = rot,
-		}, holder))
-	end
-	local body = frame({
-		BackgroundColor3 = color,
-		Size = UDim2.fromOffset(9, 9),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-	}, holder)
-	create("UICorner", { CornerRadius = UDim.new(1, 0) }, body)
-	table.insert(parts, body)
-	local hole = frame({
-		BackgroundColor3 = T.Panel,
-		Size = UDim2.fromOffset(5, 5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-	}, holder)
-	create("UICorner", { CornerRadius = UDim.new(1, 0) }, hole)
+-- Шестерёнка: пиксель-арт 11x11 (чёткая, без поворотов, с настоящей дыркой)
+local GEAR_ART = {
+	"....XXX....",
+	".XX.XXX.XX.",
+	".XXXXXXXXX.",
+	"..XXXXXXX..",
+	"XXXX...XXXX",
+	"XXXX...XXXX",
+	"XXXX...XXXX",
+	"..XXXXXXX..",
+	".XXXXXXXXX.",
+	".XX.XXX.XX.",
+	"....XXX....",
+}
 
-	return holder, function(c, animated)
+local function makeGear(parent, color)
+	local holder = frame({
+		Size = UDim2.fromOffset(11, 11),
+		Position = UDim2.fromOffset(
+			math.floor((parent.Size.X.Offset - 11) / 2),
+			math.floor((parent.Size.Y.Offset - 11) / 2)
+		),
+	}, parent)
+
+	local parts = {}
+	for y, row in ipairs(GEAR_ART) do
+		local x = 1
+		while x <= #row do
+			if row:sub(x, x) == "X" then
+				local x2 = x
+				while x2 < #row and row:sub(x2 + 1, x2 + 1) == "X" do
+					x2 += 1
+				end
+				table.insert(parts, frame({
+					BackgroundColor3 = color,
+					Size = UDim2.fromOffset(x2 - x + 1, 1),
+					Position = UDim2.fromOffset(x - 1, y - 1),
+				}, holder))
+				x = x2 + 1
+			else
+				x += 1
+			end
+		end
+	end
+
+	-- первым значением возвращается пустышка: старый код на hover крутит её,
+	-- а сама шестерёнка остаётся чёткой (поворот размыл бы пиксели)
+	local spin = Instance.new("Frame")
+
+	return spin, function(c, animated)
 		for _, p in ipairs(parts) do
 			if animated then
 				tween(p, 0.15, { BackgroundColor3 = c })
@@ -244,18 +272,6 @@ local function makeGear(parent, color)
 		end
 	end
 end
-
-local function makeMagnifier(parent)
-	local holder = frame({
-		Size = UDim2.fromOffset(12, 12),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-	}, parent)
-	local circle = frame({ Size = UDim2.fromOffset(8, 8) }, holder)
-	create("UICorner", { CornerRadius = UDim.new(1, 0) }, circle)
-	local st = stroke(circle, T.TextDim)
-	local handle = frame({
-		BackgroundColor3 = T.TextDim,
 		Size = UDim2.fromOffset(5, 2),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromOffset(9.5, 9.5),
