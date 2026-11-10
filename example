@@ -1,0 +1,66 @@
+--// RAGE
+local Rage = Window:CreateTab("Rage")
+
+local Aim = Rage:CreateSubTab("Aim")
+
+local aimbot = Aim:CreateSection("Aimbot", "Left")
+aimbot:CreateToggle("Enabled", { Keybind = true, Mode = "toggle", Flag = "aim_enabled" })
+aimbot:CreateToggle("Silent aim", { Keybind = true, Mode = "hold", Flag = "silent_aim" })
+aimbot:CreateDropdown("Hitboxes", {
+	Options = { "Head", "Chest", "Stomach", "Arms", "Legs" },
+	Default = { "Head", "Chest", "Stomach" },
+	Multi = true,
+	Flag = "hitboxes",
+})
+aimbot:CreateSlider("Minimum hit chance", { Min = 0, Max = 100, Default = 60, Suffix = "%", Flag = "hit_chance" })
+aimbot:CreateSlider("Reaction time", { Min = 0, Max = 500, Default = 75, Suffix = "ms" })
+aimbot:CreateToggle("Auto fire", { Keybind = true, Mode = "hold" })
+
+local accuracy = Aim:CreateSection("Accuracy", "Right")
+accuracy:CreateDropdown("Target selection", { Options = { "Closest", "Lowest health", "Crosshair" }, Default = "Closest" })
+accuracy:CreateSlider("Minimum damage", { Min = 1, Max = 100, Default = 10 })
+accuracy:CreateSlider("Field of view", { Min = 1, Max = 360, Default = 90, Suffix = "°" })
+accuracy:CreateToggle("Automatic penetration", { Keybind = true, Mode = "toggle" })
+accuracy:CreateToggle("Shoot through smoke")
+accuracy:CreateToggle("Shoot while blind", { Default = true })
+
+local AntiAim = Rage:CreateSubTab("Anti aim")
+
+local angles = AntiAim:CreateSection("Angles", "Left")
+angles:CreateToggle("Enabled", { Keybind = true, Mode = "toggle" })
+angles:CreateDropdown("Pitch", { Options = { "None", "Down", "Up", "Zero" }, Default = "Down" })
+angles:CreateDropdown("Yaw base", { Options = { "Local view", "At targets", "Spin" }, Default = "At targets" })
+angles:CreateSlider("Yaw offset", { Min = -180, Max = 180, Default = 0, Suffix = "°" })
+angles:CreateSlider("Jitter range", { Min = 0, Max = 180, Default = 45, Suffix = "°" })
+angles:CreateToggle("Freestanding", { Keybind = true, Mode = "hold" })
+
+local fakelag = AntiAim:CreateSection("Fake lag", "Right")
+fakelag:CreateToggle("Enabled", { Keybind = true, Mode = "always" })
+fakelag:CreateDropdown("Mode", { Options = { "Static", "Dynamic", "Random" }, Default = "Dynamic" })
+fakelag:CreateSlider("Limit", { Min = 1, Max = 14, Default = 6, Suffix = " ticks" })
+fakelag:CreateSlider("Variance", { Min = 0, Max = 100, Default = 20, Suffix = "%" })
+fakelag:CreateToggle("Lag on peek", { Keybind = true, Mode = "hold" })
+
+--// MISC
+local Misc = Window:CreateTab("Misc")
+local Hud = Misc:CreateSubTab("HUD")
+
+local interface = Hud:CreateSection("Interface", "Left")
+interface:CreateToggle("Watermark", {
+	Default = true,
+	Callback = function(v)
+		Library:SetWatermarkVisible(v)
+	end,
+})
+interface:CreateToggle("Keybind list", {
+	Default = true,
+	Callback = function(v)
+		Library:SetKeybindListVisible(v)
+	end,
+})
+
+local menu = Hud:CreateSection("Menu", "Right")
+menu:CreateLabel("Menu key: RightShift")
+menu:CreateButton("Unload", function()
+	Window:Destroy()
+end)
