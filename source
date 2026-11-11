@@ -1035,6 +1035,369 @@ function Section:AddDropdown(name, opts)
 	return D
 end
 
+-- ============================================================
+--  ColorPicker
+--  Использование:
+--    Section:AddColorPicker("My Color", {
+--        Default  = Color3.fromRGB(255, 105, 165),  -- необязательно
+--        Flag     = "my_color_flag",                -- необязательно
+--        Callback = function(color) ... end,        -- необязательно
+--    })
+-- ============================================================
+function Section:AddColorPicker(name, opts)
+	opts = opts or {}
+
+	local CP = {
+		Type     = "ColorPicker",
+		Name     = name,
+		Flag     = opts.Flag,
+		Value    = opts.Default or Color3.fromRGB(255, 255, 255),
+		Callback = opts.Callback,
+	}
+
+	-- ── строка в секции ─────────────────────────────────────
+	local row = frame({ Size = UDim2.new(1, 0, 0, 20), LayoutOrder = self:_order() }, self.Box)
+
+	local lbl = newText("TextLabel", {
+		Text      = name,
+		TextColor3 = T.TextDim,
+		Size      = UDim2.new(1, -28, 1, 0),
+	}, row)
+
+	-- маленький квадрат-превью
+	local swatch = frame({
+		BackgroundColor3 = CP.Value,
+		Size = UDim2.fromOffset(18, 12),
+		Position = UDim2.new(1, -18, 0.5, -6),
+	}, row)
+	stroke(swatch, T.Border)
+
+	-- невидимая кнопка поверх всей строки
+	local hitRow = create("TextButton", {
+		BackgroundTransparency = 1,
+		Text = "",
+		Size = UDim2.fromScale(1, 1),
+	}, row)
+
+	-- ── popup ───────────────────────────────────────────────
+	-- Размер: 160 × (120 sv + 12 hue + 8 alpha + 24 hex + paddings) ≈ 192
+	local POP_W, SV_H, HUE_H, ALPHA_H, HEX_H = 168, 120, 10, 10, 20
+	local POP_H = SV_H + 8 + HUE_H + 8 + ALPHA_H + 8 + HEX_H + 12 -- 180
+
+	local pop = frame({
+		BackgroundColor3 = T.Background,
+		Size             = UDim2.fromOffset(POP_W, POP_H),
+		Visible          = false,
+		ZIndex           = 10,
+	}, Library.Overlay)
+	stroke(pop, T.Border)
+	padding(pop, 6, 6, 6, 6)
+
+	-- внутренний список
+	local popList = frame({
+		Size = UDim2.new(1, 0, 1, 0),
+	}, pop)
+	list(popList, 6)
+
+	-- ── SV-квадрат ──────────────────────────────────────────
+	-- фон: чистый hue-цвет
+	local svFrame = frame({
+		BackgroundColor3 = Color3.fromHSV(0, 1, 1),
+		Size = UDim2.new(1, 0, 0, SV_H),
+		LayoutOrder = 1,
+	}, popList)
+	-- белый → прозрачный (горизонтально)
+	local svWhite = frame({ BackgroundColor3 = Color3.new(1,1,1), Size = UDim2.fromScale(1,1) }, svFrame)
+	create("UIGradient", {
+		Color = ColorSequence.new(Color3.new(1,1,1), Color3.new(1,1,1,0) or Color3.new(1,1,1)),
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0,0), NumberSequenceKeypoint.new(1,1) }),
+	}, svWhite)
+	-- чёрный → прозрачный (вертикально)
+	local svBlack = frame({ BackgroundColor3 = Color3.new(0,0,0), Size = UDim2.fromScale(1,1) }, svFrame)
+	create("UIGradient", {
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0,1), NumberSequenceKeypoint.new(1,0) }),
+		Rotation = 90,
+	}, svBlack)
+
+	-- курсор SV
+	local svCursor = frame({
+		BackgroundColor3 = Color3.new(1,1,1),
+		Size = UDim2.fromOffset(8, 8),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(1, 0),
+		ZIndex = 11,
+	}, svFrame)
+	create("UICorner", { CornerRadius = UDim.new(1,0) }, svCursor)
+	stroke(svCursor, Color3.new(0,0,0))
+
+	local svHit = create("TextButton", {
+		BackgroundTransparency = 1,
+		Text = "",
+		Size = UDim2.fromScale(1,1),
+		ZIndex = 12,
+	}, svFrame)
+
+	-- ── Hue-слайдер ─────────────────────────────────────────
+	local hueBar = frame({
+		Size = UDim2.new(1, 0, 0, HUE_H),
+		LayoutOrder = 2,
+	}, popList)
+	-- радуга
+	local hueGrad = frame({ BackgroundColor3 = Color3.new(1,1,1), Size = UDim2.fromScale(1,1) }, hueBar)
+	do
+		local kps = {}
+		for i = 0, 6 do
+			kps[i+1] = ColorSequenceKeypoint.new(i/6, Color3.fromHSV(i/6, 1, 1))
+		end
+		create("UIGradient", { Color = ColorSequence.new(kps) }, hueGrad)
+	end
+	local hueCursor = frame({
+		BackgroundColor3 = Color3.new(1,1,1),
+		Size = UDim2.fromOffset(4, HUE_H + 2),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0, 0.5),
+		ZIndex = 11,
+	}, hueBar)
+	stroke(hueCursor, Color3.new(0,0,0))
+	local hueHit = create("TextButton", {
+		BackgroundTransparency = 1,
+		Text = "",
+		Size = UDim2.fromScale(1,1),
+		ZIndex = 12,
+	}, hueBar)
+
+	-- ── Alpha-слайдер ────────────────────────────────────────
+	local alphaRow = frame({
+		Size = UDim2.new(1, 0, 0, ALPHA_H),
+		LayoutOrder = 3,
+	}, popList)
+	-- шахматка (имитация) - просто тёмный фон
+	local alphaChecker = frame({
+		BackgroundColor3 = Color3.fromRGB(50, 50, 55),
+		Size = UDim2.fromScale(1,1),
+	}, alphaRow)
+	local alphaGrad = frame({ BackgroundColor3 = Color3.new(1,1,1), Size = UDim2.fromScale(1,1) }, alphaChecker)
+	create("UIGradient", {
+		Color = ColorSequence.new(Color3.new(1,1,1), Color3.new(1,1,1)),
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0,1), NumberSequenceKeypoint.new(1,0) }),
+	}, alphaGrad)
+	local alphaCursor = frame({
+		BackgroundColor3 = Color3.new(1,1,1),
+		Size = UDim2.fromOffset(4, ALPHA_H + 2),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(1, 0.5),
+		ZIndex = 11,
+	}, alphaRow)
+	stroke(alphaCursor, Color3.new(0,0,0))
+	local alphaHit = create("TextButton", {
+		BackgroundTransparency = 1,
+		Text = "",
+		Size = UDim2.fromScale(1,1),
+		ZIndex = 12,
+	}, alphaRow)
+
+	-- ── Hex-инпут + превью ───────────────────────────────────
+	local bottomRow = frame({
+		Size = UDim2.new(1, 0, 0, HEX_H),
+		LayoutOrder = 4,
+	}, popList)
+
+	-- маленький цветной квадрат (превью в попапе)
+	local popSwatch = frame({
+		BackgroundColor3 = CP.Value,
+		Size = UDim2.fromOffset(HEX_H, HEX_H),
+	}, bottomRow)
+	stroke(popSwatch, T.Border)
+
+	local hexBox = create("TextBox", {
+		BackgroundColor3 = T.Element,
+		BorderSizePixel  = 0,
+		Font             = Library.Font,
+		TextSize         = Library.TextSize,
+		TextColor3       = T.Text,
+		PlaceholderText  = "hex",
+		PlaceholderColor3 = T.TextOff,
+		Text             = "",
+		ClearTextOnFocus = false,
+		TextXAlignment   = Enum.TextXAlignment.Left,
+		Size             = UDim2.new(1, -(HEX_H + 4), 1, 0),
+		Position         = UDim2.fromOffset(HEX_H + 4, 0),
+		ZIndex           = 12,
+	}, bottomRow)
+	padding(hexBox, 4, 0, 0, 0)
+	stroke(hexBox, T.Border)
+
+	-- ── внутреннее состояние ─────────────────────────────────
+	local h, s, v, a = 0, 1, 1, 1 -- hue saturation value alpha
+
+	local function colorFromHSVA()
+		return Color3.fromHSV(h, s, v)
+	end
+
+	local function hexFromColor(c)
+		return string.format("%02X%02X%02X",
+			math.round(c.R * 255),
+			math.round(c.G * 255),
+			math.round(c.B * 255))
+	end
+
+	local function colorFromHex(str)
+		str = str:match("^#?(%x%x%x%x%x%x)$") or str:match("^#?(%x%x%x)$")
+		if not str then return nil end
+		if #str == 3 then
+			str = str:sub(1,1):rep(2) .. str:sub(2,2):rep(2) .. str:sub(3,3):rep(2)
+		end
+		local n = tonumber(str, 16)
+		if not n then return nil end
+		return Color3.fromRGB(bit32.rshift(n,16), bit32.band(bit32.rshift(n,8),0xff), bit32.band(n,0xff))
+	end
+
+	local ignoreHexChange = false
+
+	local function updateVisuals()
+		local pureHue = Color3.fromHSV(h, 1, 1)
+		svFrame.BackgroundColor3 = pureHue
+
+		-- позиция SV-курсора
+		svCursor.Position = UDim2.fromScale(s, 1 - v)
+
+		-- позиция hue-курсора
+		hueCursor.Position = UDim2.fromScale(h, 0.5)
+
+		-- цвет hue-курсора совпадает с hue
+		hueCursor.BackgroundColor3 = pureHue
+
+		-- позиция alpha-курсора
+		alphaCursor.Position = UDim2.fromScale(a, 0.5)
+
+		-- обновляем цвет alpha-градиента
+		local c = colorFromHSVA()
+		create("UIGradient", {
+			Color = ColorSequence.new(c, c),
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0,1), NumberSequenceKeypoint.new(1,0) }),
+		}, alphaGrad)
+
+		-- hex
+		ignoreHexChange = true
+		hexBox.Text = hexFromColor(c)
+		ignoreHexChange = false
+
+		-- превью
+		swatch.BackgroundColor3     = c
+		popSwatch.BackgroundColor3  = c
+	end
+
+	-- ── Set ─────────────────────────────────────────────────
+	function CP:Set(color, alpha_, silent)
+		color   = color  or self.Value
+		alpha_  = alpha_ ~= nil and alpha_ or a
+		h, s, v = Color3.toHSV(color)
+		a = math.clamp(alpha_, 0, 1)
+		self.Value = colorFromHSVA()
+		updateVisuals()
+		commitFlag(self, self.Value)
+		if not silent then
+			fire(self.Callback, self.Value, a)
+		end
+	end
+
+	-- ── drag SV ─────────────────────────────────────────────
+	local function updateSV()
+		local rel = cursor() - svFrame.AbsolutePosition
+		s = math.clamp(rel.X / math.max(svFrame.AbsoluteSize.X, 1), 0, 1)
+		v = 1 - math.clamp(rel.Y / math.max(svFrame.AbsoluteSize.Y, 1), 0, 1)
+		CP:Set(Color3.fromHSV(h, s, v), a)
+	end
+
+	svHit.InputBegan:Connect(function(input)
+		if isPress(input) then
+			Library.Dragging = { Update = updateSV }
+			updateSV()
+		end
+	end)
+
+	-- ── drag Hue ────────────────────────────────────────────
+	local function updateHue()
+		h = math.clamp((cursor().X - hueBar.AbsolutePosition.X) / math.max(hueBar.AbsoluteSize.X, 1), 0, 1)
+		CP:Set(Color3.fromHSV(h, s, v), a)
+	end
+
+	hueHit.InputBegan:Connect(function(input)
+		if isPress(input) then
+			Library.Dragging = { Update = updateHue }
+			updateHue()
+		end
+	end)
+
+	-- ── drag Alpha ───────────────────────────────────────────
+	local function updateAlpha()
+		a = math.clamp((cursor().X - alphaRow.AbsolutePosition.X) / math.max(alphaRow.AbsoluteSize.X, 1), 0, 1)
+		CP:Set(Color3.fromHSV(h, s, v), a)
+	end
+
+	alphaHit.InputBegan:Connect(function(input)
+		if isPress(input) then
+			Library.Dragging = { Update = updateAlpha }
+			updateAlpha()
+		end
+	end)
+
+	-- ── hex-инпут ────────────────────────────────────────────
+	hexBox:GetPropertyChangedSignal("Text"):Connect(function()
+		if ignoreHexChange then return end
+		local c = colorFromHex(hexBox.Text)
+		if c then
+			h, s, v = Color3.toHSV(c)
+			CP:Set(c, a)
+		end
+	end)
+
+	-- ── открыть / закрыть попап ──────────────────────────────
+	hitRow.MouseButton1Click:Connect(function()
+		if Library.Popup and Library.Popup.Frame == pop then
+			Library:ClosePopup()
+			return
+		end
+
+		local function place()
+			local abs  = hitRow.AbsolutePosition
+			local ov   = Library.Overlay.AbsolutePosition
+			local vp   = Library.Overlay.AbsoluteSize
+			local px   = abs.X - ov.X
+			local py   = abs.Y - ov.Y + 22
+			-- не выходить за правый/нижний край
+			px = math.clamp(px, 4, vp.X - POP_W - 4)
+			py = math.clamp(py, 4, vp.Y - POP_H - 4)
+			pop.Position = UDim2.fromOffset(px, py)
+		end
+
+		Library:OpenPopup(pop, hitRow, place, nil)
+		updateVisuals()
+		tween(lbl, 0.12, { TextColor3 = T.Text })
+	end)
+
+	-- hover
+	hitRow.MouseEnter:Connect(function()
+		tween(lbl, 0.1, { TextColor3 = T.Text })
+	end)
+	hitRow.MouseLeave:Connect(function()
+		if not (Library.Popup and Library.Popup.Frame == pop) then
+			tween(lbl, 0.1, { TextColor3 = T.TextDim })
+		end
+	end)
+
+	-- начальное состояние
+	CP:Set(CP.Value, 1, true)
+
+	if CP.Flag then
+		Library.Options[CP.Flag] = CP
+	end
+	Library:Register(name, self.Sub, row)
+	return CP
+end
+
+Section.CreateColorPicker = Section.AddColorPicker
+
 Section.CreateLabel = Section.AddLabel
 Section.CreateButton = Section.AddButton
 Section.CreateToggle = Section.AddToggle
